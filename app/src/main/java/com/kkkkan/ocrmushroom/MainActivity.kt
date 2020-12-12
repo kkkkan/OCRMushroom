@@ -124,15 +124,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = DataBindingUtil.setContentView<ActivityMainBinding>(this, R.layout.activity_main)
 
-        val action = intent.action
-        if (action != null && ACTION_INTERCEPT.equals(action)) {
-            /* Simejiから呼出された時 */
-            val result = "NEW_STRING"
-            val data = Intent()
-            data.putExtra(REPLACE_KEY, result)
-            setResult(RESULT_OK, data)
-            finish()
-        }
 
         // Initialize our background executor
         cameraExecutor = Executors.newSingleThreadExecutor()
@@ -260,12 +251,25 @@ class MainActivity : AppCompatActivity() {
                                 arrayOf(mimeType)
                             ) { _, uri ->
                                 Log.d(TAG, "Image capture scanned into media store: $uri")
+                                binding.resultView.text = "解析中…少々お待ちください。"
                                 binding.resultView.text = doOCR(uri)
                             }
                         }
                     })
             }
 
+        }
+
+        binding.finishButton.setOnClickListener {
+            val action = intent.action
+            if (action != null && ACTION_INTERCEPT.equals(action)) {
+                /* Simejiから呼出された時 */
+                val result = binding.resultView.text ?: ""
+                val data = Intent()
+                data.putExtra(REPLACE_KEY, result)
+                setResult(RESULT_OK, data)
+                finish()
+            }
         }
     }
 
@@ -281,6 +285,9 @@ class MainActivity : AppCompatActivity() {
         val recognizedText = baseApi.utF8Text
         Log.d(TAG,recognizedText)
         baseApi.end()
+        if (recognizedText.isEmpty()){
+            return "解析失敗"
+        }
         return recognizedText
     }
 
