@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Bundle
-import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
 import android.webkit.MimeTypeMap
@@ -64,24 +63,24 @@ class MainActivity : AppCompatActivity() {
         }
 
         private val TESS_DATA_DIR = "tessdata" + File.separator
-        private val TESS_TRAINED_DATA = arrayListOf("eng.traineddata","jpn.traineddata")
+        private val TESS_TRAINED_DATA = arrayListOf("eng.traineddata", "jpn.traineddata")
         private fun copyFiles(context: Context) {
             try {
                 TESS_TRAINED_DATA.forEach {
                     val filePath = context.filesDir.toString() + File.separator + TESS_DATA_DIR + it
 
-                    Log.d(TAG,"filepath "+filePath)
+                    Log.d(TAG, "filepath " + filePath)
                     // assets以下をinputStreamでopenしてbaseApi.initで読み込める領域にコピー
                     val f0 = File(context.filesDir.toString() + File.separator + TESS_DATA_DIR)
-                    if (!f0.exists()){
+                    if (!f0.exists()) {
                         f0.mkdirs()
                     }
                     val f = File(filePath)
-                    if (!f.exists()){
+                    if (!f.exists()) {
                         f.createNewFile()
                     }
 
-                    context.resources.assets.open(TESS_DATA_DIR + it).use {inputStream ->
+                    context.resources.assets.open(TESS_DATA_DIR + it).use { inputStream ->
                         FileOutputStream(f).use { outStream ->
                             val buffer = ByteArray(1024)
                             var read = inputStream.read(buffer)
@@ -98,10 +97,10 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (e: FileNotFoundException) {
                 e.printStackTrace()
-                Log.d(TAG,"FileNotFoundException"+e.localizedMessage)
+                Log.d(TAG, "FileNotFoundException" + e.localizedMessage)
             } catch (e: IOException) {
                 e.printStackTrace()
-                Log.d(TAG,"IOException"+e.localizedMessage)
+                Log.d(TAG, "IOException" + e.localizedMessage)
             }
         }
     }
@@ -117,7 +116,11 @@ class MainActivity : AppCompatActivity() {
 
     // 定数
     private val REQUEST_CODE_PERMISSIONS = 101
-    private val REQUIRED_PERMISSIONS = arrayOf<String>(Manifest.permission.CAMERA,Manifest.permission.WRITE_EXTERNAL_STORAGE,Manifest.permission.READ_EXTERNAL_STORAGE)
+    private val REQUIRED_PERMISSIONS = arrayOf<String>(
+        Manifest.permission.CAMERA,
+        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        Manifest.permission.READ_EXTERNAL_STORAGE
+    )
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -279,18 +282,17 @@ class MainActivity : AppCompatActivity() {
         // initで言語データを読み込む
         baseApi.init(filesDir.path, "eng")
         // ギャラリーから読み込んだ画像をFile or Bitmap or byte[] or Pix形式に変換して渡してあげる
-        val bitmap =   MediaStore.Images.Media.getBitmap(this.getContentResolver(), jpgUri);
+        val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, jpgUri)
         baseApi.setImage(bitmap)
         // これだけで読み取ったテキストを取得できる
         val recognizedText = baseApi.utF8Text
-        Log.d(TAG,recognizedText)
+        Log.d(TAG, recognizedText)
         baseApi.end()
-        if (recognizedText.isEmpty()){
+        if (recognizedText.isEmpty()) {
             return "解析失敗"
         }
         return recognizedText
     }
-
 
 
 }
