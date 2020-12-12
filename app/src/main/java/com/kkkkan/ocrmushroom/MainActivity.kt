@@ -280,7 +280,14 @@ class MainActivity : AppCompatActivity() {
     private fun doOCR(jpgUri: Uri): String {
         val baseApi = TessBaseAPI()
         // initで言語データを読み込む
-        baseApi.init(filesDir.path, "eng")
+        if (binding.japaneseButton.isChecked) {
+            // 日本語モードのとき
+            baseApi.init(filesDir.path, "jpn")
+        } else {
+            // 英語モードのとき
+            baseApi.init(filesDir.path, "eng")
+        }
+
         // ギャラリーから読み込んだ画像をFile or Bitmap or byte[] or Pix形式に変換して渡してあげる
         val bitmap = MediaStore.Images.Media.getBitmap(this.contentResolver, jpgUri)
         baseApi.setImage(bitmap)
