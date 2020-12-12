@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
@@ -248,15 +247,18 @@ class MainActivity : AppCompatActivity() {
                             // images unless we scan them using [MediaScannerConnection]
                             val mimeType = MimeTypeMap.getSingleton()
                                 .getMimeTypeFromExtension(savedUri.toFile().extension)
-                            MediaScannerConnection.scanFile(
-                                this@MainActivity,
-                                arrayOf(savedUri.toFile().absolutePath),
-                                arrayOf(mimeType)
-                            ) { _, uri ->
-                                Log.d(TAG, "Image capture scanned into media store: $uri")
-                                binding.resultView.text = "解析中…少々お待ちください。"
-                                binding.resultView.text = doOCR(uri)
-                            }
+                            Log.d(TAG, "saveuri " + savedUri)
+                            binding.resultView.text = "解析中…少々お待ちください。"
+                            binding.resultView.text = doOCR(savedUri)
+//                            MediaScannerConnection.scanFile(
+//                                this@MainActivity,
+//                                arrayOf(savedUri.toFile().absolutePath),
+//                                arrayOf(mimeType)
+//                            ) { _, uri ->
+//                                Log.d(TAG, "Image capture scanned into media store: $uri")
+//                                binding.resultView.text = "解析中…少々お待ちください。"
+//                                binding.resultView.text = doOCR(uri)
+//                            }
                         }
                     })
             }
