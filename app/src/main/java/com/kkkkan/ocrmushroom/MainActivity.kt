@@ -64,7 +64,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         private val TESS_DATA_DIR = "tessdata" + File.separator
-        private val TESS_TRAINED_DATA = arrayListOf("eng.traineddata")
+        private val TESS_TRAINED_DATA = arrayListOf("eng.traineddata","jpn.traineddata")
         private fun copyFiles(context: Context) {
             try {
                 TESS_TRAINED_DATA.forEach {
@@ -260,7 +260,7 @@ class MainActivity : AppCompatActivity() {
                                 arrayOf(mimeType)
                             ) { _, uri ->
                                 Log.d(TAG, "Image capture scanned into media store: $uri")
-                                binding.resultView.text = doOCR(uri) ?: "空"
+                                binding.resultView.text = doOCR(uri)
                             }
                         }
                     })
@@ -279,6 +279,7 @@ class MainActivity : AppCompatActivity() {
         baseApi.setImage(bitmap)
         // これだけで読み取ったテキストを取得できる
         val recognizedText = baseApi.utF8Text
+        Log.d(TAG,recognizedText)
         baseApi.end()
         return recognizedText
     }
