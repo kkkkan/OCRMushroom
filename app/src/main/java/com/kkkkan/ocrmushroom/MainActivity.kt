@@ -4,13 +4,12 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.media.MediaScannerConnection
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
-import android.view.SurfaceHolder
 import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -27,6 +26,9 @@ import androidx.lifecycle.LifecycleOwner
 import com.googlecode.tesseract.android.TessBaseAPI
 import com.kkkkan.ocrmushroom.databinding.ActivityMainBinding
 import java.io.File
+import java.io.FileNotFoundException
+import java.io.FileOutputStream
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.Executor
@@ -42,20 +44,65 @@ class MainActivity : AppCompatActivity() {
 
         private const val FILENAME = "yyyy-MM-dd-HH-mm-ss-SSS"
         private const val PHOTO_EXTENSION = ".jpg"
-        val TAG="kkkkkan"
+        val TAG = "kkkkkanMainAct"
         private const val RATIO_4_3_VALUE = 4.0 / 3.0
         private const val RATIO_16_9_VALUE = 16.0 / 9.0
 
         private fun createFile(baseFolder: File, format: String, extension: String) =
-            File(baseFolder, SimpleDateFormat(format, Locale.US)
-                .format(System.currentTimeMillis()) + extension)
+            File(
+                baseFolder, SimpleDateFormat(format, Locale.US)
+                    .format(System.currentTimeMillis()) + extension
+            )
 
         fun getOutputDirectory(context: Context): File {
             val appContext = context.applicationContext
             val mediaDir = context.externalMediaDirs.firstOrNull()?.let {
-                File(it, appContext.resources.getString(R.string.app_name)).apply { mkdirs() } }
+                File(it, appContext.resources.getString(R.string.app_name)).apply { mkdirs() }
+            }
             return if (mediaDir != null && mediaDir.exists())
                 mediaDir else appContext.filesDir
+        }
+
+        private val TESS_DATA_DIR = "tessdata" + File.separator
+        private val TESS_TRAINED_DATA = arrayListOf("eng.traineddata")
+        private fun copyFiles(context: Context) {
+            try {
+                TESS_TRAINED_DATA.forEach {
+                    val filePath = context.filesDir.toString() + File.separator + TESS_DATA_DIR + it
+
+                    Log.d(TAG,"filepath "+filePath)
+                    // assets以下をinputStreamでopenしてbaseApi.initで読み込める領域にコピー
+                    val f0 = File(context.filesDir.toString() + File.separator + TESS_DATA_DIR)
+                    if (!f0.exists()){
+                        f0.mkdirs()
+                    }
+                    val f = File(filePath)
+                    if (!f.exists()){
+                        f.createNewFile()
+                    }
+
+                    context.resources.assets.open(TESS_DATA_DIR + it).use {inputStream ->
+                        FileOutputStream(f).use { outStream ->
+                            val buffer = ByteArray(1024)
+                            var read = inputStream.read(buffer)
+                            while (read != -1) {
+                                outStream.write(buffer, 0, read)
+                                read = inputStream.read(buffer)
+                            }
+                            outStream.flush()
+                        }
+                    }
+
+                    val file = File(filePath)
+                    if (!file.exists()) throw FileNotFoundException()
+                }
+            } catch (e: FileNotFoundException) {
+                e.printStackTrace()
+                Log.d(TAG,"FileNotFoundException"+e.localizedMessage)
+            } catch (e: IOException) {
+                e.printStackTrace()
+                Log.d(TAG,"IOException"+e.localizedMessage)
+            }
         }
     }
 
@@ -63,14 +110,14 @@ class MainActivity : AppCompatActivity() {
     private var cameraProvider: ProcessCameraProvider? = null
     private var lensFacing: Int = CameraSelector.LENS_FACING_BACK
     private var preview: Preview? = null
-    lateinit var outputDirectory : File
-    lateinit var cameraExecutor : Executor
+    lateinit var outputDirectory: File
+    lateinit var cameraExecutor: Executor
 
     private lateinit var imageCapture: ImageCapture
 
     // 定数
     private val REQUEST_CODE_PERMISSIONS = 101
-    private val REQUIRED_PERMISSIONS = arrayOf<String>(Manifest.permission.CAMERA)
+    private val REQUIRED_PERMISSIONS = arrayOf<String>(Manifest.permission.CAMERA,Manifest.permission.WRITE_EXTERNAL_STORAGE,Manifest.permission.READ_EXTERNAL_STORAGE)
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,6 +136,8 @@ class MainActivity : AppCompatActivity() {
 
         // Initialize our background executor
         cameraExecutor = Executors.newSingleThreadExecutor()
+        copyFiles(this)
+        outputDirectory = getOutputDirectory(applicationContext)
 
         // パーミッションのチェック
         if (allPermissionsGranted()) {
@@ -102,7 +151,7 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        outputDirectory= getOutputDirectory(this)
+
     }
 
     // パーミッション許可のリクエスト結果の取得
@@ -200,21 +249,6 @@ class MainActivity : AppCompatActivity() {
                         override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                             val savedUri = output.savedUri ?: Uri.fromFile(photoFile)
                             Log.d(TAG, "Photo capture succeeded: $savedUri")
-
-//                            // We can only change the foreground Drawable using API level 23+ API
-//                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-//                                // Update the gallery thumbnail with latest picture taken
-//                                setGalleryThumbnail(savedUri)
-//                            }
-
-                            // Implicit broadcasts will be ignored for devices running API level >= 24
-                            // so if you only target API level 24+ you can remove this statement
-//                            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
-//                                requireActivity().sendBroadcast(
-//                                    Intent(android.hardware.Camera.ACTION_NEW_PICTURE, savedUri)
-//                                )
-//                            }
-
                             // If the folder selected is an external media directory, this is
                             // unnecessary but otherwise other apps will not be able to access our
                             // images unless we scan them using [MediaScannerConnection]
@@ -226,36 +260,29 @@ class MainActivity : AppCompatActivity() {
                                 arrayOf(mimeType)
                             ) { _, uri ->
                                 Log.d(TAG, "Image capture scanned into media store: $uri")
+                                binding.resultView.text = doOCR(uri) ?: "空"
                             }
                         }
                     })
-
-                // We can only change the foreground Drawable using API level 23+ API
-//                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-//
-//                    // Display flash animation to indicate that photo was captured
-//                    container.postDelayed({
-//                        container.foreground = ColorDrawable(Color.WHITE)
-//                        container.postDelayed(
-//                            { container.foreground = null }, ANIMATION_FAST_MILLIS)
-//                    }, ANIMATION_SLOW_MILLIS)
-//                }
             }
 
         }
     }
 
 
-
-    private fun doOCR(bitmap: Bitmap) : String{
+    private fun doOCR(jpgUri: Uri): String {
         val baseApi = TessBaseAPI()
         // initで言語データを読み込む
-        baseApi.init(getFilesDir().toString(), "eng")
+        baseApi.init(filesDir.path, "eng")
         // ギャラリーから読み込んだ画像をFile or Bitmap or byte[] or Pix形式に変換して渡してあげる
+        val bitmap =   MediaStore.Images.Media.getBitmap(this.getContentResolver(), jpgUri);
         baseApi.setImage(bitmap)
         // これだけで読み取ったテキストを取得できる
         val recognizedText = baseApi.utF8Text
         baseApi.end()
         return recognizedText
     }
+
+
+
 }
